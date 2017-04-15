@@ -54,6 +54,7 @@ namespace UWP.Base
 
     protected override void ConfigureContainer(ContainerBuilder builder)
     {
+      builder.RegisterModule<BaseModule>();
       builder.RegisterModule<LoggingModule>();
       builder.RegisterAssemblyModules(this.GetType().GetTypeInfo().Assembly);
 
