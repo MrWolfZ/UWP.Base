@@ -36,12 +36,10 @@ namespace UWP.Base
         var navArgs = JsonConvert.DeserializeObject<NavigationArgs>(args.Arguments);
         this.NavigationService.Navigate(navArgs.TargetViewToken, args.Arguments);
       }
-      else if (args.PreviousExecutionState == ApplicationExecutionState.NotRunning || args.PreviousExecutionState == ApplicationExecutionState.ClosedByUser)
-      {
-        // Navigate to the initial page
-        var initialPage = this.Container.Resolve<IApplicationConfiguration>().InitialPageToken;
-        this.NavigationService.Navigate(initialPage, JsonConvert.SerializeObject(new NavigationArgs { TargetViewToken = initialPage }));
-      }
+
+      // Navigate to the initial page
+      var initialPage = this.Container.Resolve<IApplicationConfiguration>().InitialPageToken;
+      this.NavigationService.Navigate(initialPage, JsonConvert.SerializeObject(new NavigationArgs { TargetViewToken = initialPage }));
 
       Window.Current.Activate();
     }
@@ -83,7 +81,7 @@ namespace UWP.Base
       {
         this.ViewRegistrations.Add(r.Token, r.ViewType);
       }
-            
+
       var controlRegistrations = this.ResolveControlRegistrations();
 
       var viewModelRegistry = viewRegistrations.Select(r => new { Type = r.ViewType, r.ViewModelType })
@@ -92,11 +90,27 @@ namespace UWP.Base
 
       ViewModelLocationProvider.SetDefaultViewTypeToViewModelTypeResolver(viewType => viewModelRegistry[viewType]);
 
+      ViewModelLocationProvider.SetDefaultViewModelFactory(this.CreateViewModel);
+
       // Documentation on working with tiles can be found at http://go.microsoft.com/fwlink/?LinkID=288821&clcid=0x409
       //var _tileUpdater = TileUpdateManager.CreateTileUpdaterForApplication();
       //_tileUpdater.StartPeriodicUpdate(new Uri(Constants.ServerAddress + "/api/TileNotification"), PeriodicUpdateRecurrence.HalfHour);
 
       return base.OnInitializeAsync(args);
+    }
+
+    protected override ILoggerFacade CreateLogger() => new DebugLogger();
+
+    private object CreateViewModel(object view, Type viewModelType)
+    {
+      var viewModel = this.Container.Resolve(viewModelType);
+
+      if (viewModel is IDisposable d && view is FrameworkElement el)
+      {
+        el.Unloaded += (sender, args) => d.Dispose();
+      }
+
+      return viewModel;
     }
 
     private IEnumerable<ControlRegistration> ResolveControlRegistrations()
@@ -111,8 +125,6 @@ namespace UWP.Base
         return Enumerable.Empty<ControlRegistration>();
       }
     }
-
-    protected override ILoggerFacade CreateLogger() => new DebugLogger();
 
     private sealed class DebugLogger : ILoggerFacade
     {
